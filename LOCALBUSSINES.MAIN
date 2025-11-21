@@ -1,0 +1,42 @@
+com.example.localbusiness.Main
+package com.example.localbusiness;
+
+import com.example.localbusiness.db.Database;
+import com.example.localbusiness.model.Business;
+import com.example.localbusiness.service.BusinessService;
+import com.example.localbusiness.worker.NotificationWorker;
+
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Simple launcher for local testing (not a replacement for servlet container).
+ */
+public class Main {
+    public static void main(String[] args) throws Exception {
+        System.out.println("Starting LocalBusinessSupport (standalone mode)...");
+        Database db = Database.getInstance(); // initializes pool
+        BusinessService service = new BusinessService(db);
+
+        // Start worker thread that processes notifications from a shared list
+        List<Business> shared = new ArrayList<>();
+        NotificationWorker worker = new NotificationWorker(shared);
+        worker.start();
+
+        // Add a sample business
+        Business b = new Business("b001", "Sunrise Cafe", "Food", "Pune");
+        service.addBusiness(b);
+
+        // push into shared list thread-safely
+        synchronized (shared) {
+            shared.add(b);
+        }
+
+        // run briefly then shutdown
+        Thread.sleep(2000);
+        worker.stopWorker();
+        service.shutdown();
+        System.out.println("Stopped.");
+    }
+}
